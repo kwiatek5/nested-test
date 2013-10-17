@@ -9,10 +9,8 @@ http://mikehillyer.com/articles/managing-hierarchical-data-in-mysql/
 5. Node|bool getPrevious(Node) 
 6. Node|bool getNext(Node) 
 
-9. bool appendTo(Node) 
-9a. bool prependTo(Node) 
 10. array asTree() 
-
+11. move...()
 
 class Node { 
     protected id 
@@ -156,7 +154,7 @@ abstract class NestedSets {
 				ORDER BY parent.lft';
 				
 		$query = $this->pdo->prepare($sql);
-		$query->execute($id);
+		$query->execute(array($id));
 		$nodes = $query->fetchAll();
 		
 		return $nodes;
@@ -173,9 +171,13 @@ abstract class NestedSets {
 		$treeNode['lft'] = 1;
 		$treeNode['rgt'] = 2;
 
-		DB::x('LOCK TABLES tree WRITE');
+		$query = $this->pdo->prepare('LOCK TABLES `' . $this->getTreeName() . '` WRITE');
+		$query->execute();
+
 		$id = $this->_insert($treeNode);
-		DB::x('UNLOCK TABLES');
+
+		$query = $this->pdo->prepare('UNLOCK TABLES');
+		$query->execute();
 
 		return $id;
 	}
@@ -197,11 +199,19 @@ abstract class NestedSets {
 		$treeNode['lft'] = $rgt + 1;
 		$treeNode['rgt'] = $rgt + 2;
 
-		DB::x('LOCK TABLES `' . $this->getTreeName() . '` WRITE');
-		DB::x('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft > ?', array($rgt));
-		DB::x('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt > ?', array($rgt));
+		$query = $this->pdo->prepare('LOCK TABLES `' . $this->getTreeName() . '` WRITE');
+		$query->execute();
+		
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft > ?');
+		$query->execute(array($rgt));
+		
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt > ?');
+		$query->execute(array($rgt));
+
 		$id = $this->_insert($treeNode);
-		DB::x('UNLOCK TABLES');
+		
+		$query = $this->pdo->prepare('UNLOCK TABLES');
+		$query->execute();
 
 		return $id;
 	}
@@ -223,11 +233,80 @@ abstract class NestedSets {
 		$treeNode['lft'] = $lft;
 		$treeNode['rgt'] = $lft + 1;
 
-		DB::x('LOCK TABLES `' . $this->getTreeName() . '` WRITE');
-		DB::x('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft >= ?', array($lft));
-		DB::x('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt >= ?', array($lft));
+		$query = $this->pdo->prepare('LOCK TABLES `' . $this->getTreeName() . '` WRITE');
+		$query->execute();
+		
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft >= ?');
+		$query->execute(array($lft));
+		
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt >= ?');
+		$query->execute(array($lft));
+		
 		$id = $this->_insert($treeNode);
-		DB::x('UNLOCK TABLES');
+		
+		$query = $this->pdo->prepare('UNLOCK TABLES');
+		$query->execute();
+
+		return $id;
+	}
+	
+	public function appendTo($id, array $treeNode) {
+
+		$node = $this->getNode($id);
+		if (!$node) {
+			return false;
+		}
+
+		$rgt = $node['rgt'];
+
+		unset($treeNode['id']);
+		$treeNode['lft'] = $rgt;
+		$treeNode['rgt'] = $rgt + 1;
+
+		$query = $this->pdo->prepare('LOCK TABLES `' . $this->getTreeName() . '` WRITE');
+		$query->execute();
+		
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft >= ?');
+		$query->execute(array($rgt));
+		
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt >= ?');
+		$query->execute(array($rgt));
+		
+		$id = $this->_insert($treeNode);
+		
+		$query = $this->pdo->prepare('UNLOCK TABLES');
+		$query->execute();
+
+		return $id;
+	}
+
+	public function prependTo($id, array $treeNode) {
+
+		$node = $this->getNode($id);
+		if (!$node) {
+			return false;
+		}
+
+		$lft = $node['lft'];
+
+		unset($treeNode['id']);
+		$treeNode['lft'] = $lft + 1;
+		$treeNode['rgt'] = $lft + 2;
+
+		$query = $this->pdo->prepare('LOCK TABLES `' . $this->getTreeName() . '` WRITE');
+		$query->execute();
+		
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft > ?');
+		$query->execute(array($lft));
+		
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt > ?');
+		$query->execute(array($lft));
+		
+		
+		$id = $this->_insert($treeNode);
+		
+		$query = $this->pdo->prepare('UNLOCK TABLES');
+		$query->execute();
 
 		return $id;
 	}
