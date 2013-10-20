@@ -106,6 +106,52 @@ abstract class NestedSets {
 		return $this->getTree((int) $id);
 	}
 
+	final public function getTreeSize($id = false) {
+		$where = '';
+		$params = array();
+
+		if ($id !== false) {
+			$node = $this->getNode($id);
+			if (!$node) {
+				return 0;
+			}
+
+			$where .= 'WHERE node.lft >= ? AND node.lft <= ?';
+			$params = array_merge($params, array($node['lft'], $node['rgt']));
+		}
+
+		$sql = 'SELECT COUNT(node.id) as `size`
+				FROM '. $this->getTreeName() . ' AS node ' . $where . ' LIMIT 1';
+
+		$query = $this->pdo->prepare($sql);
+		$query->execute($params);
+		$size = $query->fetch();
+
+		return  $size ? $size['size'] : 0;
+	}
+
+	final public function getSubTreeSize($id) {
+		return $this->getTreeSize((int) $id);
+	}
+
+	final public function getTreeHeight() {
+		$sql = 'SELECT MAX(t.depth) as depth
+				FROM (
+					SELECT node.id, (SELECT COUNT(parent.id) - 0
+									FROM `' . $this->getTreeName() . '` AS parent
+									WHERE node.lft >= parent.lft 
+									AND node.lft <= parent.rgt
+									) AS depth
+					FROM '. $this->getTreeName() . ' AS node) as t
+				LIMIT 1';
+
+		$query = $this->pdo->prepare($sql);
+		$query->execute();
+		$height = $query->fetch();
+
+		return $height ? $height['depth'] : 0;
+	}
+
 	final public function getTreeWithoutNode($id) {
 		$where = '';
 		$params = array();
@@ -207,13 +253,71 @@ abstract class NestedSets {
 				AND sub_parent.name = sub_tree.name
 				GROUP BY node.name
 				HAVING depth = 1
-				ORDER BY node.lft;';
+				ORDER BY node.lft';
 
 		$query = $this->pdo->prepare($sql);
 		$query->execute(array($id));
 		$nodes = $query->fetchAll();
 		
 		return $nodes;
+	}
+
+	final public function getFirstChild($id) {
+		$sql = 'SELECT node.*, (COUNT(parent.name) - (sub_tree.depth + 1)) AS depth
+				FROM `' . $this->getTreeName() . '` AS node,
+					`' . $this->getTreeName() . '` AS parent,
+					`' . $this->getTreeName() . '` AS sub_parent,
+					(
+					SELECT node.name, (COUNT(parent.name) - 1) AS depth
+					FROM `' . $this->getTreeName() . '` AS node,
+					`' . $this->getTreeName() . '` AS parent
+					WHERE node.lft BETWEEN parent.lft AND parent.rgt
+					AND node.id = ?
+					GROUP BY node.name
+					ORDER BY node.lft
+					)AS sub_tree
+				WHERE node.lft BETWEEN parent.lft AND parent.rgt
+				AND node.lft BETWEEN sub_parent.lft AND sub_parent.rgt
+				AND sub_parent.name = sub_tree.name
+				GROUP BY node.name
+				HAVING depth = 1
+				ORDER BY node.lft
+				LIMIT 1';
+
+		$query = $this->pdo->prepare($sql);
+		$query->execute(array($id));
+		$node = $query->fetch();
+		
+		return $node ? $node : false;
+	}
+
+	final public function getLastChild($id) {
+		$sql = 'SELECT node.*, (COUNT(parent.name) - (sub_tree.depth + 1)) AS depth
+				FROM `' . $this->getTreeName() . '` AS node,
+					`' . $this->getTreeName() . '` AS parent,
+					`' . $this->getTreeName() . '` AS sub_parent,
+					(
+					SELECT node.name, (COUNT(parent.name) - 1) AS depth
+					FROM `' . $this->getTreeName() . '` AS node,
+					`' . $this->getTreeName() . '` AS parent
+					WHERE node.lft BETWEEN parent.lft AND parent.rgt
+					AND node.id = ?
+					GROUP BY node.name
+					ORDER BY node.lft
+					)AS sub_tree
+				WHERE node.lft BETWEEN parent.lft AND parent.rgt
+				AND node.lft BETWEEN sub_parent.lft AND sub_parent.rgt
+				AND sub_parent.name = sub_tree.name
+				GROUP BY node.name
+				HAVING depth = 1
+				ORDER BY node.lft DESC
+				LIMIT 1';
+
+		$query = $this->pdo->prepare($sql);
+		$query->execute(array($id));
+		$node = $query->fetch();
+		
+		return $node ? $node : false;
 	}
 
 	public function addRoot(array $treeNode) {
