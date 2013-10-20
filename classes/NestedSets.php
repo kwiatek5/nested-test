@@ -2,6 +2,7 @@
 /*
 
 http://mikehillyer.com/articles/managing-hierarchical-data-in-mysql/
+http://www.sideralis.org/baobab/
 
 3. NodeCollection getSiblings(Node) 
 4. NodeCollection getChildren(Node) 
