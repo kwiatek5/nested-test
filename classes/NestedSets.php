@@ -3,36 +3,14 @@
 
 http://mikehillyer.com/articles/managing-hierarchical-data-in-mysql/
 
-2. Node getParent(Node) 
 3. NodeCollection getSiblings(Node) 
 4. NodeCollection getChildren(Node) 
 5. Node|bool getPrevious(Node) 
 6. Node|bool getNext(Node) 
 
-10. array asTree() 
 11. move...()
 
-class Node { 
-    protected id 
-    protected lft 
-    protected rgt 
 
-    1. function getRoot() { 
-        select from tree where lft=1 
-        return $node or false 
-    } 
-
-
-
-
-    10. function asTree() { 
-        select * 
-        from tree 
-        where lft >= $this->lft 
-        and rgt <= $this->rgt 
-        order by lft 
-    } 
-}
 */
 
 abstract class NestedSets {
@@ -211,28 +189,28 @@ abstract class NestedSets {
 	}
 
 	final public function getChildren($id) {
-		$where = '';
-		$params = array();
-
-		if ($id !== false) {
-			$node = $this->getNode($id);
-			if (!$node) {
-				return array();
-			}
-
-			$where .= 'WHERE node.lft > ? AND node.lft < ?';
-			$params = array_merge($params, array($node['lft'], $node['rgt']));
-		}
-
-		$sql = 'SELECT node.*, (SELECT COUNT(parent.id) - 1
-								FROM `' . $this->getTreeName() . '` AS parent
-								WHERE node.lft >= parent.lft 
-								AND node.lft <= parent.rgt
-								) AS depth
-				FROM '. $this->getTreeName() . ' AS node ' . $where . ' ORDER BY node.lft';
+		$sql = 'SELECT node.*, (COUNT(parent.name) - (sub_tree.depth + 1)) AS depth
+				FROM `' . $this->getTreeName() . '` AS node,
+					`' . $this->getTreeName() . '` AS parent,
+					`' . $this->getTreeName() . '` AS sub_parent,
+					(
+					SELECT node.name, (COUNT(parent.name) - 1) AS depth
+					FROM `' . $this->getTreeName() . '` AS node,
+					`' . $this->getTreeName() . '` AS parent
+					WHERE node.lft BETWEEN parent.lft AND parent.rgt
+					AND node.id = ?
+					GROUP BY node.name
+					ORDER BY node.lft
+					)AS sub_tree
+				WHERE node.lft BETWEEN parent.lft AND parent.rgt
+				AND node.lft BETWEEN sub_parent.lft AND sub_parent.rgt
+				AND sub_parent.name = sub_tree.name
+				GROUP BY node.name
+				HAVING depth = 1
+				ORDER BY node.lft;';
 
 		$query = $this->pdo->prepare($sql);
-		$query->execute($params);
+		$query->execute(array($id));
 		$nodes = $query->fetchAll();
 		
 		return $nodes;

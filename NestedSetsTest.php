@@ -30,7 +30,7 @@ $view->set('nodes', $nodes);
 echo $view;
 
 $oTree = new Kategoria('tree', $pdo);
-$nodes = $oTree->getChildren(2);
+$nodes = $oTree->getChildren(1);
 $view = new View(__DIR__ . '/views/NestedSetsTest.php');
 $view->set('nodes', $nodes);
 echo $view;
