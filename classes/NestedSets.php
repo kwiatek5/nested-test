@@ -81,8 +81,17 @@ abstract class NestedSets {
 	}
 
 	final public function getNode($id) {
-		$query = $this->pdo->prepare('SELECT * FROM `' . $this->getTreeName() . '` WHERE id = ? LIMIT 1');
-		$query->execute(array(1));
+		$sql = 'SELECT node.*, (SELECT COUNT(parent.id) - 1 
+								FROM `' . $this->getTreeName() . '` AS parent
+								WHERE node.lft >= parent.lft 
+								AND node.lft <= parent.rgt
+								) AS depth
+				FROM '. $this->getTreeName() . ' AS node
+				WHERE id = ?
+				LIMIT 1';
+
+		$query = $this->pdo->prepare($sql);
+		$query->execute(array($id));
 		$node = $query->fetch();
 		return $node ? $node : false;
 	}
@@ -101,7 +110,7 @@ abstract class NestedSets {
 			$params = array_merge($params, array($node['lft'], $node['rgt']));
 		}
 
-		$sql = 'SELECT node.*, (SELECT COUNT(parent.id) - 1 
+		$sql = 'SELECT node.*, (SELECT COUNT(parent.id) - 1
 								FROM `' . $this->getTreeName() . '` AS parent
 								WHERE node.lft >= parent.lft 
 								AND node.lft <= parent.rgt
@@ -119,7 +128,7 @@ abstract class NestedSets {
 		return $this->getTree((int) $id);
 	}
 
-	public function getTreeWithoutNode($id) {
+	final public function getTreeWithoutNode($id) {
 		$where = '';
 		$params = array();
 
@@ -144,9 +153,13 @@ abstract class NestedSets {
 
 		return $tree;
 	}
-	
+
 	public function getAncestors($id) { // przodkowie
-		$sql = 'SELECT parent.*
+		$sql = 'SELECT parent.*, (SELECT COUNT(node.id) - 1 
+								FROM `' . $this->getTreeName() . '` AS node
+								WHERE parent.lft >= node.lft 
+								AND parent.lft <= node.rgt
+								) AS depth
 				FROM `' . $this->getTreeName() . '` AS node, `' . $this->getTreeName() . '` AS parent
 				WHERE node.lft >= parent.lft
 				AND node.lft <= parent.rgt
@@ -160,7 +173,71 @@ abstract class NestedSets {
 		return $nodes;
 	}
 	
-	
+	final public function getLeafs() {
+		$sql = 'SELECT node.*, (SELECT COUNT(parent.id) - 1 
+								FROM `' . $this->getTreeName() . '` AS parent
+								WHERE node.lft >= parent.lft 
+								AND node.lft <= parent.rgt
+								) AS depth
+				FROM '. $this->getTreeName() . ' AS node 
+				WHERE node.lft + 1 = node.rgt
+				ORDER BY node.lft';
+				
+		$query = $this->pdo->prepare($sql);
+		$query->execute();
+		$nodes = $query->fetchAll();
+		
+		return $nodes;
+	}
+
+	final public function getParent($id) {
+		$sql = 'SELECT parent.*, (SELECT COUNT(node.id) - 1 
+								FROM `' . $this->getTreeName() . '` AS node
+								WHERE parent.lft >= node.lft 
+								AND parent.lft <= node.rgt
+								) AS depth
+				FROM `' . $this->getTreeName() . '` AS node, `' . $this->getTreeName() . '` AS parent
+				WHERE node.lft > parent.lft
+				AND node.lft < parent.rgt
+				AND node.id = ?
+				ORDER BY parent.lft DESC
+				LIMIT 1';
+				
+		$query = $this->pdo->prepare($sql);
+		$query->execute(array($id));
+		$node = $query->fetch();
+		
+		return $node ? $node : false;
+	}
+
+	final public function getChildren($id) {
+		$where = '';
+		$params = array();
+
+		if ($id !== false) {
+			$node = $this->getNode($id);
+			if (!$node) {
+				return array();
+			}
+
+			$where .= 'WHERE node.lft > ? AND node.lft < ?';
+			$params = array_merge($params, array($node['lft'], $node['rgt']));
+		}
+
+		$sql = 'SELECT node.*, (SELECT COUNT(parent.id) - 1
+								FROM `' . $this->getTreeName() . '` AS parent
+								WHERE node.lft >= parent.lft 
+								AND node.lft <= parent.rgt
+								) AS depth
+				FROM '. $this->getTreeName() . ' AS node ' . $where . ' ORDER BY node.lft';
+
+		$query = $this->pdo->prepare($sql);
+		$query->execute($params);
+		$nodes = $query->fetchAll();
+		
+		return $nodes;
+	}
+
 	public function addRoot(array $treeNode) {
 		$root = $this->getRoot();
 		if ($root) {
