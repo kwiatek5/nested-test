@@ -341,7 +341,7 @@ abstract class NestedSets {
 		return false;
 	}
 
-	public function addRoot(array $treeNode) {
+	final public function addRoot(array $treeNode) {
 		$root = $this->getRoot();
 		if ($root) {
 			return false;
@@ -358,14 +358,14 @@ abstract class NestedSets {
 		return $id;
 	}
 
-	public function insertAfter($id, array $treeNode) {
+	final public function insertAfter($id, array $treeNode) {
 
 		$node = $this->getNode($id);
 		if (!$node) {
 			return false;
 		}
 
-		if ($node['lft'] == 1) { // parent
+		if ($node['lft'] == 1) { // root
 			return false;
 		}
 
@@ -390,14 +390,14 @@ abstract class NestedSets {
 		return $id;
 	}
 
-	public function insertBefore($id, array $treeNode) {
+	final public function insertBefore($id, array $treeNode) {
 
 		$node = $this->getNode($id);
 		if (!$node) {
 			return false;
 		}
 
-		if ($node['lft'] == 1) { // parent
+		if ($node['lft'] == 1) { // root
 			return false;
 		}
 
@@ -422,7 +422,7 @@ abstract class NestedSets {
 		return $id;
 	}
 	
-	public function appendTo($id, array $treeNode) {
+	final public function appendTo($id, array $treeNode) {
 
 		$node = $this->getNode($id);
 		if (!$node) {
@@ -450,7 +450,7 @@ abstract class NestedSets {
 		return $id;
 	}
 
-	public function prependTo($id, array $treeNode) {
+	final public function prependTo($id, array $treeNode) {
 
 		$node = $this->getNode($id);
 		if (!$node) {
@@ -477,6 +477,19 @@ abstract class NestedSets {
 		$this->_unlockTables();
 
 		return $id;
+	}
+
+	final public function insertChildAtIndex($id, $index, array $treeNode) {
+
+		$node = getChildAtIndex($id, $index);
+		
+		/*
+		1. empty tree
+		2. only root
+		3. no children
+		4. one children
+		5. more children
+		*/
 	}
 
 }
