@@ -45,7 +45,9 @@ if (!$oTree->getRoot()) {
 	$id_nagrywane = $oTree->appendTo($id_kasety, array('name' => 'Nagrywanie'));
 }
 
-$oTree->deleteNode(129);
+//$oTree->insertChildAtIndex(142, 4, array('name' => 'co4'));
+
+//$oTree->deleteNode(129);
 $nodes = $oTree->getTree();
 //echo '<pre>';var_dump($nodes);echo '</pre>';exit;
 $view = new View(__DIR__ . '/views/NestedSetsTest.php');

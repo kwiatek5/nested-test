@@ -509,18 +509,26 @@ abstract class NestedSets {
 	}
 
 	final public function insertChildAtIndex($id, $index, array $treeNode) {
-
-		$node = $this->getChildAtIndex($id, $index);
-
-
-
-		/*
-		  1. empty tree
-		  2. only root
-		  3. no children
-		  4. one children
-		  5. more children
-		 */
+		$nodes = $this->getChildren($id);
+		if (!$nodes) {
+			return false;
+		}
+		
+		$countChildren = count($nodes);
+		if (!$countChildren) {
+			return $this->appendTo($id, $treeNode);
+		}
+		
+		$index = (int) $index;
+		if ($index < 1) {
+			$index = 1;
+		} elseif ($index > $countChildren) {
+			$index = $countChildren;
+		}
+		
+		$node = $nodes[$index - 1];
+		
+		return $this->insertBefore($node['id'], $treeNode);
 	}
 
 }
