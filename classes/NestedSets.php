@@ -42,8 +42,8 @@ abstract class NestedSets {
 	final private function _insert(array $treeNode) {
 
 		$fields = array_map(function($el) {
-					return '`' . $el . '`';
-				}, array_keys($treeNode));
+			return '`' . $el . '`';
+		}, array_keys($treeNode));
 
 		$values = array_values($treeNode);
 		$valuesQuestionMarks = implode(', ', array_fill(0, count($values), '?'));
@@ -496,7 +496,7 @@ abstract class NestedSets {
 
 		$query = $this->pdo->prepare('DELETE FROM `' . $this->getTreeName() . '` WHERE lft >= ? AND rgt <= ?');
 		$query->execute(array($lft, $rgt));
-		
+
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $size . ' WHERE lft > ?');
 		$query->execute(array($rgt));
 
@@ -504,7 +504,7 @@ abstract class NestedSets {
 		$query->execute(array($rgt));
 
 		$this->_unlockTables();
-		
+
 		return true;
 	}
 
@@ -513,23 +513,34 @@ abstract class NestedSets {
 		if (!$nodes) {
 			return false;
 		}
-		
+
 		$countChildren = count($nodes);
 		if (!$countChildren) {
 			return $this->appendTo($id, $treeNode);
 		}
-		
+
 		$index = (int) $index;
 		if ($index < 1) {
 			$index = 1;
 		} elseif ($index > $countChildren) {
 			$index = $countChildren;
 		}
-		
+
 		$node = $nodes[$index - 1];
-		
+
 		return $this->insertBefore($node['id'], $treeNode);
 	}
 
-}
+	final public function moveBefore($id, $idSibling) {
+		
+	}
 
+	final public function moveAfter($id, $idSibling) {
+		
+	}
+
+	final public function moveTo($id, $idParent) {
+		
+	}
+
+}
