@@ -25,6 +25,7 @@ class Kategoria extends NestedSets {
 $oTree = new Kategoria('tree', $pdo);
 
 //$pdo->exec('DELETE FROM tree');
+$pdo->exec('TRUNCATE TABLE tree');
 
 if (!$oTree->getRoot()) {
 	$id_sprzet = $oTree->addRoot(array('name' => 'Sprzęt'));
@@ -46,6 +47,7 @@ if (!$oTree->getRoot()) {
 }
 
 //$oTree->insertChildAtIndex(142, 4, array('name' => 'co4'));
+$oTree->moveLeft(9);
 
 //$oTree->deleteNode(129);
 $nodes = $oTree->getTree();

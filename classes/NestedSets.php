@@ -4,14 +4,7 @@
 
   http://mikehillyer.com/articles/managing-hierarchical-data-in-mysql/
   http://www.sideralis.org/baobab/
-
-  3. NodeCollection getSiblings(Node)
-  4. NodeCollection getChildren(Node)
-  5. Node|bool getPrevious(Node)
-  6. Node|bool getNext(Node)
-
-  11. move...()
-
+  https://github.com/etrepat/baum
 
  */
 
@@ -529,6 +522,60 @@ abstract class NestedSets {
 		$node = $nodes[$index - 1];
 
 		return $this->insertBefore($node['id'], $treeNode);
+	}
+
+	final public function moveLeft($id) {
+		$parent = $this->getParent($id);
+		if (!$parent) {
+			return false;
+		}
+
+		$node = $this->getNode($id); // node exists, beacuse has parent
+		$nodes = $this->getChildren($parent['id']);
+		if ($nodes[0]['id'] == $node['id']) { // is first or the only
+			return false;
+		}
+
+		$index = false;
+		for ($i = 1, $c = count($nodes); $i < $c; $i++) {
+			if ($node['id'] == $nodes[$i]['id']) {
+				$index = $i;
+				break;
+			}
+		}
+		
+		$size = $node['rgt'] - $node['lft'] + 1;
+		
+		$prevNode = $nodes[$index - 1]; // exists, bacause $index always exists
+		$prevSize = $prevNode['rgt'] - $prevNode['lft'] + 1;
+
+		$this->_lockTable();
+
+		// make hole for prev node after node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . $prevSize . ' WHERE lft > ?');
+		$query->execute(array($node['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . $prevSize . ' WHERE rgt > ?');
+		$query->execute(array($node['rgt']));
+		
+		// locate prev node after node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . ($size + $prevSize) . ' WHERE lft >= ? AND lft < ?');
+		$query->execute(array($prevNode['lft'], $prevNode['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . ($size + $prevSize) . ' WHERE rgt > ? AND rgt <= ?');
+		$query->execute(array($prevNode['lft'], $prevNode['rgt']));
+		
+		// close gap before node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $prevSize . ' WHERE lft >= ?');
+		$query->execute(array($node['lft']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt - ' . $prevSize . ' WHERE rgt >= ?');
+		$query->execute(array($node['rgt']));
+		
+		$this->_unlockTables();
+		
+		return true;
+	}
+
+	final public function moveRight($id) {
+		
 	}
 
 	final public function moveBefore($id, $idSibling) {
