@@ -575,7 +575,53 @@ abstract class NestedSets {
 	}
 
 	final public function moveRight($id) {
+		$parent = $this->getParent($id);
+		if (!$parent) {
+			return false;
+		}
 
+		$node = $this->getNode($id); // node exists, beacuse has parent
+		$nodes = $this->getChildren($parent['id']);
+		if ($nodes[count($nodes) - 1]['id'] == $node['id']) { // is last or the only
+			return false;
+		}
+
+		$index = false;
+		for ($i = 0, $c = count($nodes); $i < $c - 1; $i++) {
+			if ($node['id'] == $nodes[$i]['id']) {
+				$index = $i;
+				break;
+			}
+		}
+
+		$size = $node['rgt'] - $node['lft'] + 1;
+
+		$nextNode = $nodes[$index + 1]; // exists, bacause $index always exists
+		$nextSize = $nextNode['rgt'] - $nextNode['lft'] + 1;
+
+		$this->_lockTable();
+
+		// make hole for prev node after node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . $size . ' WHERE lft > ?');
+		$query->execute(array($nextNode['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . $size . ' WHERE rgt > ?');
+		$query->execute(array($nextNode['rgt']));
+
+		// locate prev node after node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . ($size + $nextSize) . ' WHERE lft >= ? AND lft < ?');
+		$query->execute(array($node['lft'], $node['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . ($size + $nextSize) . ' WHERE rgt > ? AND rgt <= ?');
+		$query->execute(array($node['lft'], $node['rgt']));
+
+//		// close gap before node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $size . ' WHERE lft >= ?');
+		$query->execute(array($nextNode['lft']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt - ' . $size . ' WHERE rgt >= ?');
+		$query->execute(array($nextNode['lft']));
+
+		$this->_unlockTables();
+
+		return true;
 	}
 
 	final public function moveBefore($id, $idSibling) {
