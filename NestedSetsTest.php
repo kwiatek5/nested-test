@@ -47,7 +47,7 @@ if (!$oTree->getRoot()) {
 }
 
 //$oTree->insertChildAtIndex(142, 4, array('name' => 'co4'));
-$oTree->moveLeft(9);
+$oTree->moveLeft(5);
 
 //$oTree->deleteNode(129);
 $nodes = $oTree->getTree();
