@@ -1,20 +1,15 @@
 <?php
+
 /*
 
-http://mikehillyer.com/articles/managing-hierarchical-data-in-mysql/
-http://www.sideralis.org/baobab/
+  http://mikehillyer.com/articles/managing-hierarchical-data-in-mysql/
+  http://www.sideralis.org/baobab/
+  https://github.com/etrepat/baum
 
-3. NodeCollection getSiblings(Node) 
-4. NodeCollection getChildren(Node) 
-5. Node|bool getPrevious(Node) 
-6. Node|bool getNext(Node) 
-
-11. move...()
-
-
-*/
+ */
 
 abstract class NestedSets {
+
 	private $pdo;
 	private $treeName;
 
@@ -36,16 +31,16 @@ abstract class NestedSets {
 		$this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		$this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 	}
-	
+
 	final private function _insert(array $treeNode) {
 
 		$fields = array_map(function($el) {
-					return '`' . $el . '`';
-				}, array_keys($treeNode));
+			return '`' . $el . '`';
+		}, array_keys($treeNode));
 
 		$values = array_values($treeNode);
 		$valuesQuestionMarks = implode(', ', array_fill(0, count($values), '?'));
-		
+
 		$query = $this->pdo->prepare('INSERT INTO `' . $this->getTreeName() . '` (' . implode(', ', $fields) . ') VALUES (' . $valuesQuestionMarks . ')');
 		$query->execute($values);
 
@@ -75,7 +70,7 @@ abstract class NestedSets {
 								WHERE node.lft >= parent.lft 
 								AND node.lft <= parent.rgt
 								) AS depth
-				FROM '. $this->getTreeName() . ' AS node
+				FROM ' . $this->getTreeName() . ' AS node
 				WHERE id = ?
 				LIMIT 1';
 
@@ -104,7 +99,7 @@ abstract class NestedSets {
 								WHERE node.lft >= parent.lft 
 								AND node.lft <= parent.rgt
 								) AS depth
-				FROM '. $this->getTreeName() . ' AS node ' . $where . ' ORDER BY node.lft';
+				FROM ' . $this->getTreeName() . ' AS node ' . $where . ' ORDER BY node.lft';
 
 		$query = $this->pdo->prepare($sql);
 		$query->execute($params);
@@ -132,13 +127,13 @@ abstract class NestedSets {
 		}
 
 		$sql = 'SELECT COUNT(node.id) as `size`
-				FROM '. $this->getTreeName() . ' AS node ' . $where . ' LIMIT 1';
+				FROM ' . $this->getTreeName() . ' AS node ' . $where . ' LIMIT 1';
 
 		$query = $this->pdo->prepare($sql);
 		$query->execute($params);
 		$size = $query->fetch();
 
-		return  $size ? $size['size'] : 0;
+		return $size ? $size['size'] : 0;
 	}
 
 	final public function getSubTreeSize($id) {
@@ -153,7 +148,7 @@ abstract class NestedSets {
 									WHERE node.lft >= parent.lft 
 									AND node.lft <= parent.rgt
 									) AS depth
-					FROM '. $this->getTreeName() . ' AS node) as t
+					FROM ' . $this->getTreeName() . ' AS node) as t
 				LIMIT 1';
 
 		$query = $this->pdo->prepare($sql);
@@ -200,28 +195,28 @@ abstract class NestedSets {
 				AND node.lft <= parent.rgt
 				AND node.id = ?
 				ORDER BY parent.lft';
-				
+
 		$query = $this->pdo->prepare($sql);
 		$query->execute(array($id));
 		$nodes = $query->fetchAll();
-		
+
 		return $nodes;
 	}
-	
+
 	final public function getLeafs() {
 		$sql = 'SELECT node.*, (SELECT COUNT(parent.id) - 1 
 								FROM `' . $this->getTreeName() . '` AS parent
 								WHERE node.lft >= parent.lft 
 								AND node.lft <= parent.rgt
 								) AS depth
-				FROM '. $this->getTreeName() . ' AS node 
+				FROM ' . $this->getTreeName() . ' AS node 
 				WHERE node.lft + 1 = node.rgt
 				ORDER BY node.lft';
-				
+
 		$query = $this->pdo->prepare($sql);
 		$query->execute();
 		$nodes = $query->fetchAll();
-		
+
 		return $nodes;
 	}
 
@@ -237,11 +232,11 @@ abstract class NestedSets {
 				AND node.id = ?
 				ORDER BY parent.lft DESC
 				LIMIT 1';
-				
+
 		$query = $this->pdo->prepare($sql);
 		$query->execute(array($id));
 		$node = $query->fetch();
-		
+
 		return $node ? $node : false;
 	}
 
@@ -269,7 +264,7 @@ abstract class NestedSets {
 		$query = $this->pdo->prepare($sql);
 		$query->execute(array($id));
 		$nodes = $query->fetchAll();
-		
+
 		return $nodes;
 	}
 
@@ -298,7 +293,7 @@ abstract class NestedSets {
 		$query = $this->pdo->prepare($sql);
 		$query->execute(array($id));
 		$node = $query->fetch();
-		
+
 		return $node ? $node : false;
 	}
 
@@ -327,7 +322,7 @@ abstract class NestedSets {
 		$query = $this->pdo->prepare($sql);
 		$query->execute(array($id));
 		$node = $query->fetch();
-		
+
 		return $node ? $node : false;
 	}
 
@@ -337,7 +332,7 @@ abstract class NestedSets {
 		if ($nodes && isset($nodes[$index])) {
 			return $nodes[$index];
 		}
-		
+
 		return false;
 	}
 
@@ -376,15 +371,15 @@ abstract class NestedSets {
 		$treeNode['rgt'] = $rgt + 2;
 
 		$this->_lockTable();
-		
+
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft > ?');
 		$query->execute(array($rgt));
-		
+
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt > ?');
 		$query->execute(array($rgt));
 
 		$id = $this->_insert($treeNode);
-		
+
 		$this->_unlockTables();
 
 		return $id;
@@ -408,20 +403,20 @@ abstract class NestedSets {
 		$treeNode['rgt'] = $lft + 1;
 
 		$this->_lockTable();
-		
+
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft >= ?');
 		$query->execute(array($lft));
-		
+
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt >= ?');
 		$query->execute(array($lft));
-		
+
 		$id = $this->_insert($treeNode);
-		
+
 		$this->_unlockTables();
 
 		return $id;
 	}
-	
+
 	final public function appendTo($id, array $treeNode) {
 
 		$node = $this->getNode($id);
@@ -436,15 +431,15 @@ abstract class NestedSets {
 		$treeNode['rgt'] = $rgt + 1;
 
 		$this->_lockTable();
-		
+
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft >= ?');
 		$query->execute(array($rgt));
-		
+
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt >= ?');
 		$query->execute(array($rgt));
-		
+
 		$id = $this->_insert($treeNode);
-		
+
 		$this->_unlockTables();
 
 		return $id;
@@ -464,67 +459,181 @@ abstract class NestedSets {
 		$treeNode['rgt'] = $lft + 2;
 
 		$this->_lockTable();
-		
+
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + 2 WHERE lft > ?');
 		$query->execute(array($lft));
-		
+
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + 2 WHERE rgt > ?');
 		$query->execute(array($lft));
-		
-		
+
+
 		$id = $this->_insert($treeNode);
-		
+
 		$this->_unlockTables();
 
 		return $id;
 	}
 
-	final public function insertChildAtIndex($id, $index, array $treeNode) {
+	final public function deleteNode($id) {
+		$node = $this->getNode($id);
 
-		$node = getChildAtIndex($id, $index);
+		if (!$node) {
+			return false;
+		}
+
+		$lft = $node['lft'];
+		$rgt = $node['rgt'];
+		$size = $rgt - $lft + 1;
+
+		$this->_lockTable();
+
+		$query = $this->pdo->prepare('DELETE FROM `' . $this->getTreeName() . '` WHERE lft >= ? AND rgt <= ?');
+		$query->execute(array($lft, $rgt));
+
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $size . ' WHERE lft > ?');
+		$query->execute(array($rgt));
+
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt - ' . $size . ' WHERE rgt > ?');
+		$query->execute(array($rgt));
+
+		$this->_unlockTables();
+
+		return true;
+	}
+
+	final public function insertChildAtIndex($id, $index, array $treeNode) {
+		$nodes = $this->getChildren($id);
+		if (!$nodes) {
+			return false;
+		}
+
+		$countChildren = count($nodes);
+		if (!$countChildren) {
+			return $this->appendTo($id, $treeNode);
+		}
+
+		$index = (int) $index;
+		if ($index < 1) {
+			$index = 1;
+		} elseif ($index > $countChildren) {
+			$index = $countChildren;
+		}
+
+		$node = $nodes[$index - 1];
+
+		return $this->insertBefore($node['id'], $treeNode);
+	}
+
+	final public function moveLeft($id) {
+		$parent = $this->getParent($id);
+		if (!$parent) {
+			return false;
+		}
+
+		$node = $this->getNode($id); // node exists, beacuse has parent
+		$nodes = $this->getChildren($parent['id']);
+		if ($nodes[0]['id'] == $node['id']) { // is first or the only
+			return false;
+		}
+
+		$index = false;
+		for ($i = 1, $c = count($nodes); $i < $c; $i++) {
+			if ($node['id'] == $nodes[$i]['id']) {
+				$index = $i;
+				break;
+			}
+		}
+
+		$size = $node['rgt'] - $node['lft'] + 1;
+
+		$prevNode = $nodes[$index - 1]; // exists, bacause $index always exists
+		$prevSize = $prevNode['rgt'] - $prevNode['lft'] + 1;
+
+		$this->_lockTable();
+
+		// make hole for prev node after node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . $prevSize . ' WHERE lft > ?');
+		$query->execute(array($node['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . $prevSize . ' WHERE rgt > ?');
+		$query->execute(array($node['rgt']));
+
+		// locate prev node after node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . ($size + $prevSize) . ' WHERE lft >= ? AND lft < ?');
+		$query->execute(array($prevNode['lft'], $prevNode['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . ($size + $prevSize) . ' WHERE rgt > ? AND rgt <= ?');
+		$query->execute(array($prevNode['lft'], $prevNode['rgt']));
+
+//		// close gap before node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $prevSize . ' WHERE lft >= ?');
+		$query->execute(array($node['lft']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt - ' . $prevSize . ' WHERE rgt >= ?');
+		$query->execute(array($node['lft']));
+
+		$this->_unlockTables();
+
+		return true;
+	}
+
+	final public function moveRight($id) {
+		$parent = $this->getParent($id);
+		if (!$parent) {
+			return false;
+		}
+
+		$node = $this->getNode($id); // node exists, beacuse has parent
+		$nodes = $this->getChildren($parent['id']);
+		if ($nodes[count($nodes) - 1]['id'] == $node['id']) { // is last or the only
+			return false;
+		}
+
+		$index = false;
+		for ($i = 0, $c = count($nodes); $i < $c - 1; $i++) {
+			if ($node['id'] == $nodes[$i]['id']) {
+				$index = $i;
+				break;
+			}
+		}
+
+		$size = $node['rgt'] - $node['lft'] + 1;
+
+		$nextNode = $nodes[$index + 1]; // exists, bacause $index always exists
+		$nextSize = $nextNode['rgt'] - $nextNode['lft'] + 1;
+
+		$this->_lockTable();
+
+		// make hole for prev node after node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . $size . ' WHERE lft > ?');
+		$query->execute(array($nextNode['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . $size . ' WHERE rgt > ?');
+		$query->execute(array($nextNode['rgt']));
+
+		// locate prev node after node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . ($size + $nextSize) . ' WHERE lft >= ? AND lft < ?');
+		$query->execute(array($node['lft'], $node['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . ($size + $nextSize) . ' WHERE rgt > ? AND rgt <= ?');
+		$query->execute(array($node['lft'], $node['rgt']));
+
+//		// close gap before node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $size . ' WHERE lft >= ?');
+		$query->execute(array($nextNode['lft']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt - ' . $size . ' WHERE rgt >= ?');
+		$query->execute(array($nextNode['lft']));
+
+		$this->_unlockTables();
+
+		return true;
+	}
+
+	final public function moveBefore($id, $idSibling) {
 		
-		/*
-		1. empty tree
-		2. only root
-		3. no children
-		4. one children
-		5. more children
-		*/
+	}
+
+	final public function moveAfter($id, $idSibling) {
+		
+	}
+
+	final public function moveTo($id, $idParent) {
+		
 	}
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
