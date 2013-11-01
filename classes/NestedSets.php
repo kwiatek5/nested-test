@@ -563,7 +563,7 @@ abstract class NestedSets {
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . ($size + $prevSize) . ' WHERE rgt > ? AND rgt <= ?');
 		$query->execute(array($prevNode['lft'], $prevNode['rgt']));
 
-//		// close gap before node
+		// close gap before node
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $prevSize . ' WHERE lft >= ?');
 		$query->execute(array($node['lft']));
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt - ' . $prevSize . ' WHERE rgt >= ?');
@@ -613,7 +613,7 @@ abstract class NestedSets {
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . ($size + $nextSize) . ' WHERE rgt > ? AND rgt <= ?');
 		$query->execute(array($node['lft'], $node['rgt']));
 
-//		// close gap before node
+		// close gap before node
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $size . ' WHERE lft >= ?');
 		$query->execute(array($nextNode['lft']));
 		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt - ' . $size . ' WHERE rgt >= ?');
@@ -624,12 +624,120 @@ abstract class NestedSets {
 		return true;
 	}
 
-	final public function moveBefore($id, $idSibling) {
-		
+	final public function moveBefore($id, $idTarget) {
+		$id = (int) $id;
+		$idTarget = (int) $idTarget;
+
+		if ($id == $idTarget) {
+			return false;
+		}
+
+		$parent = $this->getParent($id); // check if exists and is not root
+		if (!$parent) {
+			return false;
+		}
+
+		$parentTarget = $this->getParent($idTarget); // check if exists and is not root
+		if (!$parentTarget) {
+			return false;
+		}
+
+		$node = $this->getNode($id);
+		$nodeTarget = $this->getNode($idTarget);
+
+		// target node can't be subtree of node
+		if ($node['lft'] <= $nodeTarget['lft'] && $nodeTarget['rgt'] <= $node['rgt']) {
+			return false;
+		}
+
+		$size = $node['rgt'] - $node['lft'] + 1;
+
+		$this->_lockTable();
+
+		// make hole for node before nodeTarget
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . $size . ' WHERE lft >= ?');
+		$query->execute(array($nodeTarget['lft']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . $size . ' WHERE rgt > ?');
+		$query->execute(array($nodeTarget['lft']));
+
+		if ($node['lft'] > $nodeTarget['lft']) {
+			$node['lft'] = $node['lft'] + $size;
+			$node['rgt'] = $node['rgt'] + $size;
+		}
+
+		$offset = $nodeTarget['lft'] - $node['lft'];
+
+		// locate nodeNew before nodeTarget
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . $offset . ' WHERE lft >= ? AND lft < ?');
+		$query->execute(array($node['lft'], $node['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . $offset . ' WHERE rgt > ? AND rgt <= ?');
+		$query->execute(array($node['lft'], $node['rgt']));
+
+		// close gap where was node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $size . ' WHERE lft >= ?');
+		$query->execute(array($node['lft']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt - ' . $size . ' WHERE rgt >= ?');
+		$query->execute(array($node['lft']));
+
+		$this->_unlockTables();
 	}
 
-	final public function moveAfter($id, $idSibling) {
-		
+	final public function moveAfter($id, $idTarget) {
+		$id = (int) $id;
+		$idTarget = (int) $idTarget;
+
+		if ($id == $idTarget) {
+			return false;
+		}
+
+		$parent = $this->getParent($id); // check if exists and is not root
+		if (!$parent) {
+			return false;
+		}
+
+		$parentTarget = $this->getParent($idTarget); // check if exists and is not root
+		if (!$parentTarget) {
+			return false;
+		}
+
+		$node = $this->getNode($id);
+		$nodeTarget = $this->getNode($idTarget);
+
+		// target node can't be subtree of node
+		if ($node['lft'] <= $nodeTarget['lft'] && $nodeTarget['rgt'] <= $node['rgt']) {
+			return false;
+		}
+
+		$size = $node['rgt'] - $node['lft'] + 1;
+
+		$this->_lockTable();
+
+		// make hole for node before nodeTarget
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . $size . ' WHERE lft >= ?');
+		$query->execute(array($nodeTarget['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . $size . ' WHERE rgt > ?');
+		$query->execute(array($nodeTarget['rgt']));
+
+		if ($node['lft'] > $nodeTarget['lft']) {
+			$node['lft'] = $node['lft'] + $size;
+			$node['rgt'] = $node['rgt'] + $size;
+		}
+
+		$offset = (1 + $nodeTarget['rgt']) - $node['lft'];
+
+		// locate nodeNew after nodeTarget
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft + ' . $offset . ' WHERE lft >= ? AND lft < ?');
+		$query->execute(array($node['lft'], $node['rgt']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt + ' . $offset . ' WHERE rgt > ? AND rgt <= ?');
+		$query->execute(array($node['lft'], $node['rgt']));
+
+		// close gap where was node
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET lft = lft - ' . $size . ' WHERE lft >= ?');
+		$query->execute(array($node['lft']));
+		$query = $this->pdo->prepare('UPDATE `' . $this->getTreeName() . '` SET rgt = rgt - ' . $size . ' WHERE rgt >= ?');
+		$query->execute(array($node['lft']));
+
+		$this->_unlockTables();
 	}
 
 	final public function moveTo($id, $idParent) {
