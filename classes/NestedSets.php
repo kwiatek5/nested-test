@@ -7,7 +7,10 @@
   https://github.com/etrepat/baum
 
  */
-
+/**
+ * Required fields in table: id, lft, rgt.
+ * Disallowed fields in table: depth.
+ */
 abstract class NestedSets {
 
 	private $pdo;
@@ -64,13 +67,19 @@ abstract class NestedSets {
 		return $node ? $node : false;
 	}
 
+	/**
+	 * Returns a node with its depth level.
+	 * 
+	 * @param int $id
+	 * @return array|bool
+	 */
 	final public function getNode($id) {
 		$sql = 'SELECT node.*, (SELECT COUNT(parent.id) - 1 
 								FROM `' . $this->getTreeName() . '` AS parent
 								WHERE node.lft >= parent.lft 
 								AND node.lft <= parent.rgt
 								) AS depth
-				FROM ' . $this->getTreeName() . ' AS node
+				FROM `' . $this->getTreeName() . '` AS node
 				WHERE id = ?
 				LIMIT 1';
 
@@ -80,6 +89,12 @@ abstract class NestedSets {
 		return $node ? $node : false;
 	}
 
+	/**
+	 * Returns a tree or a subtree.
+	 * 
+	 * @param int|bool $id
+	 * @return array
+	 */
 	final public function getTree($id = false) {
 		$where = '';
 		$params = array();
@@ -99,7 +114,7 @@ abstract class NestedSets {
 								WHERE node.lft >= parent.lft 
 								AND node.lft <= parent.rgt
 								) AS depth
-				FROM ' . $this->getTreeName() . ' AS node ' . $where . ' ORDER BY node.lft';
+				FROM `' . $this->getTreeName() . '` AS node ' . $where . ' ORDER BY node.lft';
 
 		$query = $this->pdo->prepare($sql);
 		$query->execute($params);
@@ -108,10 +123,22 @@ abstract class NestedSets {
 		return $tree;
 	}
 
+	/**
+	 * Returns a tree or a subtree.
+	 * 
+	 * @param type $id
+	 * @return type
+	 */
 	final public function getSubTree($id) {
 		return $this->getTree((int) $id);
 	}
 
+	/**
+	 * Returns a number of elements of a tree or a subtree.
+	 * 
+	 * @param int|bool $id
+	 * @return int
+	 */
 	final public function getTreeSize($id = false) {
 		$where = '';
 		$params = array();
@@ -127,7 +154,7 @@ abstract class NestedSets {
 		}
 
 		$sql = 'SELECT COUNT(node.id) as `size`
-				FROM ' . $this->getTreeName() . ' AS node ' . $where . ' LIMIT 1';
+				FROM `' . $this->getTreeName() . '` AS node ' . $where . ' LIMIT 1';
 
 		$query = $this->pdo->prepare($sql);
 		$query->execute($params);
@@ -136,6 +163,12 @@ abstract class NestedSets {
 		return $size ? $size['size'] : 0;
 	}
 
+	/**
+	 * Returns a number of elements of a tree or a subtree.
+	 * 
+	 * @param int $id
+	 * @return int
+	 */
 	final public function getSubTreeSize($id) {
 		return $this->getTreeSize((int) $id);
 	}
@@ -148,7 +181,7 @@ abstract class NestedSets {
 									WHERE node.lft >= parent.lft 
 									AND node.lft <= parent.rgt
 									) AS depth
-					FROM ' . $this->getTreeName() . ' AS node) as t
+					FROM `' . $this->getTreeName() . '` AS node) as t
 				LIMIT 1';
 
 		$query = $this->pdo->prepare($sql);
@@ -158,6 +191,12 @@ abstract class NestedSets {
 		return $height ? $height['depth'] : 0;
 	}
 
+	/**
+	 * Returns a tree without a subtree where $id is a root of this subtree.
+	 * 
+	 * @param int $id
+	 * @return array
+	 */
 	final public function getTreeWithoutNode($id) {
 		$where = '';
 		$params = array();
@@ -184,6 +223,12 @@ abstract class NestedSets {
 		return $tree;
 	}
 
+	/**
+	 * Return a path from root to a node.
+	 * 
+	 * @param int $id
+	 * @return array
+	 */
 	public function getAncestors($id) { // przodkowie
 		$sql = 'SELECT parent.*, (SELECT COUNT(node.id) - 1 
 								FROM `' . $this->getTreeName() . '` AS node
@@ -209,7 +254,7 @@ abstract class NestedSets {
 								WHERE node.lft >= parent.lft 
 								AND node.lft <= parent.rgt
 								) AS depth
-				FROM ' . $this->getTreeName() . ' AS node 
+				FROM `' . $this->getTreeName() . '` AS node 
 				WHERE node.lft + 1 = node.rgt
 				ORDER BY node.lft';
 
@@ -249,13 +294,16 @@ abstract class NestedSets {
 						SELECT node.name, (COUNT(parent.name) - 1) AS depth
 						FROM `' . $this->getTreeName() . '` AS node,
 						`' . $this->getTreeName() . '` AS parent
-						WHERE node.lft BETWEEN parent.lft AND parent.rgt
+						WHERE node.lft >= parent.lft
+						AND node.lft <= parent.rgt
 						AND node.id = ?
 						GROUP BY node.name
 						ORDER BY node.lft
 					) AS sub_tree
-				WHERE node.lft BETWEEN parent.lft AND parent.rgt
-				AND node.lft BETWEEN sub_parent.lft AND sub_parent.rgt
+				WHERE node.lft >= parent.lft
+				AND node.lft <= parent.rgt
+				AND node.lft >= sub_parent.lft
+				AND node.lft <= sub_parent.rgt
 				AND sub_parent.name = sub_tree.name
 				GROUP BY node.name
 				HAVING _depth = 1
@@ -277,13 +325,16 @@ abstract class NestedSets {
 						SELECT node.name, (COUNT(parent.name) - 1) AS depth
 						FROM `' . $this->getTreeName() . '` AS node,
 						`' . $this->getTreeName() . '` AS parent
-						WHERE node.lft BETWEEN parent.lft AND parent.rgt
+						WHERE node.lft >= parent.lft
+						AND node.lft <= parent.rgt
 						AND node.id = ?
 						GROUP BY node.name
 						ORDER BY node.lft
 					) AS sub_tree
-				WHERE node.lft BETWEEN parent.lft AND parent.rgt
-				AND node.lft BETWEEN sub_parent.lft AND sub_parent.rgt
+				WHERE node.lft >= parent.lft
+				AND node.lft <= parent.rgt
+				AND node.lft >= sub_parent.lft
+				AND node.lft <= sub_parent.rgt
 				AND sub_parent.name = sub_tree.name
 				GROUP BY node.name
 				HAVING _depth = 1
@@ -306,13 +357,16 @@ abstract class NestedSets {
 						SELECT node.name, (COUNT(parent.name) - 1) AS depth
 						FROM `' . $this->getTreeName() . '` AS node,
 						`' . $this->getTreeName() . '` AS parent
-						WHERE node.lft BETWEEN parent.lft AND parent.rgt
+						WHERE node.lft >= parent.lft
+						AND node.lft <= parent.rgt
 						AND node.id = ?
 						GROUP BY node.name
 						ORDER BY node.lft
 					) AS sub_tree
-				WHERE node.lft BETWEEN parent.lft AND parent.rgt
-				AND node.lft BETWEEN sub_parent.lft AND sub_parent.rgt
+				WHERE node.lft >= parent.lft
+				AND node.lft <= parent.rgt
+				AND node.lft >= sub_parent.lft
+				AND node.lft <= sub_parent.rgt
 				AND sub_parent.name = sub_tree.name
 				GROUP BY node.name
 				HAVING _depth = 1
